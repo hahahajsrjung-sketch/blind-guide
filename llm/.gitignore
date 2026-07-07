@@ -13,3 +13,6 @@ data/sft/train.review.jsonl
 finetune/outputs/
 finetune/data/train_chat.jsonl
 finetune/data/train_chat.preview.jsonl
+
+# A100 전송 번들 — package_a100.py 로 재생성.
+dist/

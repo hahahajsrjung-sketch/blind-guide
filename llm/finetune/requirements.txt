@@ -1,14 +1,17 @@
-# 파인튜닝 의존성. GPU 박스(CUDA)에서 설치한다. 데스크탑/CPU에는 설치하지 않는다.
-# Unsloth 는 CUDA GPU 전용. 설치는 공식 안내를 따르는 게 가장 안전하다:
-#   https://github.com/unslothai/unsloth  (버전/토치 조합이 자주 바뀜)
+# 파인튜닝 의존성. GPU 박스(CUDA)에서 설치한다. run_a100.sh 가 이 조합을 자동 설치한다.
 #
-# 아래는 기준 조합. 실제 설치 시 unsloth 문서의 최신 pip 한 줄을 우선한다.
-unsloth
-trl>=0.9.6
-peft>=0.11.1
+# 엔진 두 개:
+#   train_lora_hf.py (HF)      — 아래만으로 돈다. EXAONE(커스텀 아키텍처) 경로.
+#   train_lora.py    (Unsloth) — 추가로 unsloth 필요. Qwen2.5 등 지원 베이스 전용.
+#
+# torch 는 CUDA 버전에 맞춰 별도 설치:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
 transformers>=4.44.0
+trl>=0.9.6,<0.13
+peft>=0.11.1
 datasets>=2.20.0
 accelerate>=0.32.0
 bitsandbytes>=0.43.1
 pyyaml>=6.0
-# torch 는 CUDA 버전에 맞춰 별도 설치(예: pip install torch --index-url https://download.pytorch.org/whl/cu121)
+# Qwen(Unsloth) 경로만:
+# unsloth

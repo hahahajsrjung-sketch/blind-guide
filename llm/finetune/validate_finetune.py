@@ -46,11 +46,11 @@ RULE_TO_MAX = {"한두 문장": 2, "서너 문장": 4, "네다섯 문장": 5}
 COLOR_LINE_CONG = "색을 시각 기억으로 설명하지 않는다"  # congenital 규칙 문장의 고정 앞부분.
 
 
-def fail_list():
+def fail_list(config_name="config.yaml"):
     problems = []
 
     # 1. config
-    cfg_path = HERE / "config.yaml"
+    cfg_path = HERE / config_name
     cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     for k in REQUIRED_KEYS:
         if k not in cfg:
@@ -123,7 +123,10 @@ def fail_list():
 
 
 def main():
-    problems, cfg, extra = fail_list()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="config.yaml")
+    args = ap.parse_args()
+    problems, cfg, extra = fail_list(args.config)
     if isinstance(extra, tuple):
         rows, stats = extra
         print(f"학습 예시 {len(rows)}개 | congenital {stats['onset'].get('congenital',0)} "

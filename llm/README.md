@@ -57,9 +57,15 @@ llm/
   model/
     serve_v2.py            # 프롬프트-only v2 정본: '호출 시 프롬프트 전달' 참조 구현.
   finetune/
-    config.yaml            # 베이스 모델·LoRA·하이퍼파라미터·템플릿 마커. 여기 한 곳만 고친다.
-    train_lora.py          # Unsloth+TRL LoRA 학습. GPU 박스에서. 마커 하드 검증 포함.
+    config.yaml            # EXAONE 7.8b 설정(연구용 라이선스 주의). 마커 포함.
+    config.qwen.yaml       # Qwen2.5-7B 대안(Apache-2.0, 상용 안전). 동일 데이터로 비교실험.
+    train_lora.py          # Unsloth 엔진(Qwen 등 지원 베이스). 마커 하드 검증.
+    train_lora_hf.py       # HF 엔진(transformers+peft) — EXAONE 커스텀 아키텍처 경로.
+    eval_hf.py             # A100 사후 평가(Ollama 불필요, baseline 표와 나란히 채점).
     validate_finetune.py   # GPU 없는 드라이런 게이트(형식·홀드아웃 오염·규칙·마커).
+    run_a100.sh            # A100 원샷: 설치→검증→학습→사후평가.
+    package_a100.py        # 자체완결 번들(dist/a100_bundle.zip) 생성.
+    RUNBOOK_A100.md        # A100 런북(엔진·라이선스·GGUF·vLLM 서빙·트러블슈팅).
     requirements.txt, export_to_ollama.md, README.md
   notes.md                 # 시험 기록·baseline 표·판단 근거.
   README.md                # 이 문서.
@@ -96,14 +102,20 @@ python scripts/build_chat_dataset.py --in ../data/sft/train.jsonl   # (scripts/ 
 python finetune/validate_finetune.py                    # GPU 없이 최종 게이트(형식·오염·규칙)
 ```
 
-### 3) 파인튜닝 (GPU 박스 = 메가존 A100)
+### 3) 파인튜닝 (메가존 A100 — 턴키)
 
 ```
-cd finetune && pip install -r requirements.txt
-python train_lora.py --config config.yaml
-# → export_to_ollama.md 대로 GGUF를 Ollama에 등록(blindguide-rewriter)
-python ../scripts/eval_local.py blindguide-rewriter v1   # 색 누출이 줄었는지 검증
+python finetune/package_a100.py                    # → dist/a100_bundle.zip (자체완결 52KB)
+scp llm/dist/a100_bundle.zip user@<a100>:~/
+# A100에서:
+unzip a100_bundle.zip -d blindguide && cd blindguide/llm/finetune
+bash run_a100.sh          # EXAONE (HF 엔진)  — 설치→검증→학습→사후평가 원샷
+bash run_a100.sh qwen     # Qwen2.5 (Unsloth) — Apache-2.0 상용 안전 비교군
 ```
+
+성공 판정은 사후평가(eval_hf)의 **선천맹 색 누출 < 4/6**. 상세·GGUF 변환·vLLM 상시 서빙은
+`finetune/RUNBOOK_A100.md`. **라이선스 주의:** EXAONE 3.5는 연구용(상용은 LG 별도 계약),
+Qwen2.5는 Apache-2.0 — 베이스 최종 선정은 검토 창 안건.
 
 Windows에서 한글 출력이 깨지면 `$env:PYTHONUTF8="1"` 후 실행.
 
