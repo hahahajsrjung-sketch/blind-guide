@@ -12,3 +12,4 @@ data/sft/train.review.jsonl
 # 파인튜닝 산출물 — 큰 바이너리(어댑터/병합/GGUF). 학습 시 재생성.
 finetune/outputs/
 finetune/data/train_chat.jsonl
+finetune/data/train_chat.preview.jsonl

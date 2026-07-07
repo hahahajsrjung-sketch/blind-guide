@@ -43,7 +43,8 @@ llm/
     sft/
       raw_pool.jsonl              # 학습용 밋밋한 묘사 풀(평가셋과 분리). 원칙만으로 창작.
       train.review.jsonl          # 증류+보정 결과. '감수 대기'. 생성물.
-      # train.jsonl               # 사람이 감수해 확정한 학습셋(감수 후 생김).
+      curated_fixes.jsonl         # 감수 수정본 25개(서술형 색→온도·질감·기능 치환).
+      train.jsonl                 # 확정 학습셋 324개(자동 299+수정 25, 재검증 통과).
   scripts/
     try_local.py           # 로컬 손시험. backend/prompts.py 그대로 import.
     rewriter_v2.py         # v2 프롬프트(few-shot + 출력 제약). 프롬프트 최대화.

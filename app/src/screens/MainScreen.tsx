@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,13 +11,15 @@ import {
 
 import { requestDescription } from "../api/describeClient";
 import { captureImage } from "../features/camera/cameraStub";
-import { useGlasses } from "../features/glasses/useGlasses";
-import { GlassesConnectionState } from "../features/glasses/types";
-import { speak, stopSpeaking } from "../features/voice/voiceStub";
 import {
-  DEMO_ARTWORK_ID,
-  DEMO_USERS,
-} from "../profile/currentProfile";
+  errorFeedback,
+  successFeedback,
+  tapFeedback,
+} from "../features/feedback/haptics";
+import { GlassesConnectionState } from "../features/glasses/types";
+import { useGlasses } from "../features/glasses/useGlasses";
+import { speak, stopSpeaking } from "../features/voice/voiceStub";
+import { DEMO_ARTWORK_ID, DEMO_USERS } from "../profile/currentProfile";
 import { DescribeRequest } from "../types";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -30,9 +33,9 @@ const GLASSES_STATE_LABEL: Record<GlassesConnectionState, string> = {
   error: "오류",
 };
 
-// 이번 뼈대의 화면 하나: 프로필 토글 + 버튼 + 결과 표시 영역.
-// [사용자 선택] → [버튼 탭] → 가짜 image → POST /describe → 설명을 글자로 표시.
-// 사용자를 바꿔 누르면 시각 상태(onset)에 따라 설명이 다르게 오는 걸 확인한다.
+// 시각장애인 우선 화면.
+// 원칙: ① 초대형 버튼(화면 하단 엄지 존) ② 모든 상태 변화를 음성+진동으로
+//       ③ 초고대비(순검정/순백 + 인디고 포인트) ④ 큰 글자.
 export default function MainScreen() {
   const [userIndex, setUserIndex] = useState<number>(0);
   const [status, setStatus] = useState<Status>("idle");
@@ -42,14 +45,41 @@ export default function MainScreen() {
   const glasses = useGlasses();
   const selected = DEMO_USERS[userIndex];
 
+  // 로딩 중 버튼이 숨 쉬듯 커졌다 작아지는 펄스.
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (status !== "loading") {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.05,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [status, pulse]);
+
   async function onPressDescribe() {
-    stopSpeaking(); // 이전 낭독 중지
+    stopSpeaking();
+    tapFeedback(); // 눌림을 진동으로 확인
     setStatus("loading");
     setError("");
     setDescription("");
+    speak("설명을 가져오는 중입니다"); // 화면을 못 봐도 진행 상황을 알게
 
     try {
-      const image = await captureImage(); // 지금은 가짜 placeholder
+      const image = await captureImage();
       const body: DescribeRequest = {
         user_id: selected.profile.user_id,
         image,
@@ -59,104 +89,89 @@ export default function MainScreen() {
       const res = await requestDescription(body);
       setDescription(res.description);
       setStatus("done");
-      speak(res.description); // 받은 설명을 소리로 읽어준다
+      successFeedback();
+      speak(res.description);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
       setStatus("error");
-      speak(msg); // 오류도 소리로 안내 (화면을 못 보는 사용자 배려)
+      errorFeedback();
+      speak(`오류가 났습니다. ${msg}`);
     }
   }
 
   function onSelectUser(i: number) {
     stopSpeaking();
+    tapFeedback();
     setUserIndex(i);
+    speak(`${DEMO_USERS[i].label} 사용자로 바꿨습니다`);
   }
 
   const isLoading = status === "loading";
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>눈앞 설명 듣기</Text>
-
-      {/* 안경 연결 상태. mock 모드에서는 자동 연결, meta 모드면 실제 페어링 */}
-      <View style={styles.glassesRow}>
-        <Text style={styles.glassesStatus} accessibilityLabel={`안경 상태: ${GLASSES_STATE_LABEL[glasses.state]}`}>
-          안경: {GLASSES_STATE_LABEL[glasses.state]}
-          {glasses.providerName === "mock" ? " (모의)" : ""}
-        </Text>
-        {!glasses.connected && (
-          <Pressable
-            onPress={glasses.connect}
-            disabled={glasses.busy}
-            style={styles.glassesBtn}
-            accessibilityRole="button"
-            accessibilityLabel="안경 연결"
-          >
-            <Text style={styles.glassesBtnText}>
-              {glasses.busy ? "연결 중…" : "안경 연결"}
-            </Text>
-          </Pressable>
-        )}
+      {/* ── 상단: 타이틀 + 안경 상태 ── */}
+      <View style={styles.topBar}>
+        <Text style={styles.title}>눈앞 설명</Text>
+        <View
+          style={[
+            styles.glassesChip,
+            glasses.connected && styles.glassesChipOn,
+          ]}
+          accessibilityLabel={`안경 상태: ${GLASSES_STATE_LABEL[glasses.state]}`}
+        >
+          <Text style={styles.glassesChipText}>
+            👓 {GLASSES_STATE_LABEL[glasses.state]}
+            {glasses.providerName === "mock" ? "·모의" : ""}
+          </Text>
+        </View>
       </View>
 
-      {/* 데모 사용자(시각 상태) 선택 — 바꿔 누르면 설명이 달라지는지 확인 */}
-      <Text style={styles.sectionLabel}>사용자(시각 상태)</Text>
-      <View style={styles.userRow}>
-        {DEMO_USERS.map((u, i) => {
-          const active = i === userIndex;
-          return (
-            <Pressable
-              key={u.profile.user_id}
-              onPress={() => onSelectUser(i)}
-              disabled={isLoading}
-              style={[styles.chip, active && styles.chipActive]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={`${u.label} 사용자`}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {u.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {!glasses.connected && (
+        <Pressable
+          onPress={glasses.connect}
+          disabled={glasses.busy}
+          style={styles.connectBtn}
+          accessibilityRole="button"
+          accessibilityLabel="안경 연결"
+        >
+          <Text style={styles.connectBtnText}>
+            {glasses.busy ? "연결 중…" : "안경 연결하기"}
+          </Text>
+        </Pressable>
+      )}
 
-      <Pressable
-        onPress={onPressDescribe}
-        disabled={isLoading}
-        style={({ pressed }) => [
-          styles.button,
-          isLoading && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="눈앞을 설명해줘"
-      >
-        <Text style={styles.buttonText}>
-          {isLoading ? "설명 받는 중…" : "눈앞을 설명해줘"}
-        </Text>
-      </Pressable>
-
+      {/* ── 중단: 결과 영역 (큰 글자) ── */}
       <ScrollView
         style={styles.resultBox}
         contentContainerStyle={styles.resultContent}
       >
         {status === "idle" && (
-          <Text style={styles.hint}>버튼을 누르면 설명이 여기 표시됩니다.</Text>
+          <Text style={styles.hint}>
+            아래 큰 버튼을 누르면{"\n"}눈앞을 설명해 드립니다
+          </Text>
         )}
-        {isLoading && <ActivityIndicator size="large" color="#ffffff" />}
+        {isLoading && (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color="#a29bfe" />
+            <Text style={styles.loadingText}>설명 가져오는 중…</Text>
+          </View>
+        )}
         {status === "done" && (
           <Text style={styles.resultText}>{description}</Text>
         )}
         {status === "error" && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
 
+      {/* ── 음성 컨트롤 (설명 있을 때) ── */}
       {status === "done" && (
         <View style={styles.voiceRow}>
           <Pressable
-            onPress={() => speak(description)}
+            onPress={() => {
+              tapFeedback();
+              speak(description);
+            }}
             style={styles.voiceBtn}
             accessibilityRole="button"
             accessibilityLabel="다시 듣기"
@@ -164,7 +179,10 @@ export default function MainScreen() {
             <Text style={styles.voiceBtnText}>🔊 다시 듣기</Text>
           </Pressable>
           <Pressable
-            onPress={stopSpeaking}
+            onPress={() => {
+              tapFeedback();
+              stopSpeaking();
+            }}
             style={styles.voiceBtn}
             accessibilityRole="button"
             accessibilityLabel="멈춤"
@@ -173,143 +191,212 @@ export default function MainScreen() {
           </Pressable>
         </View>
       )}
+
+      {/* ── 하단: 사용자 토글 + 초대형 캡처 버튼 (엄지 존) ── */}
+      <View style={styles.bottomZone}>
+        <View style={styles.userRow}>
+          {DEMO_USERS.map((u, i) => {
+            const active = i === userIndex;
+            return (
+              <Pressable
+                key={u.profile.user_id}
+                onPress={() => onSelectUser(i)}
+                disabled={isLoading}
+                style={[styles.chip, active && styles.chipActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${u.label} 사용자${active ? ", 선택됨" : ""}`}
+              >
+                <Text
+                  style={[styles.chipText, active && styles.chipTextActive]}
+                >
+                  {u.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Animated.View style={{ transform: [{ scale: pulse }] }}>
+          <Pressable
+            onPress={onPressDescribe}
+            disabled={isLoading}
+            style={({ pressed }) => [
+              styles.bigButton,
+              isLoading && styles.bigButtonLoading,
+              pressed && styles.bigButtonPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="눈앞을 설명해줘"
+            accessibilityHint="누르면 안경 카메라로 눈앞을 촬영해 설명을 들려줍니다"
+          >
+            <Text style={styles.bigButtonText}>
+              {isLoading ? "듣는 중…" : "눈앞을\n설명해줘"}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      </View>
     </View>
   );
 }
+
+// SightSpace 톤: 순검정 배경 + 인디고(#6c5ce7) 포인트 + 순백 텍스트 (초고대비)
+const INDIGO = "#6c5ce7";
+const INDIGO_DIM = "#4a3fb5";
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000000",
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   title: {
     color: "#ffffff",
     fontSize: 26,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
-  glassesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: "#141414",
-    borderRadius: 12,
-  },
-  glassesStatus: {
-    color: "#cccccc",
-    fontSize: 15,
-    fontWeight: "600",
-    flexShrink: 1,
-  },
-  glassesBtn: {
-    backgroundColor: "#2a2a2a",
+  glassesChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginLeft: 10,
-  },
-  glassesBtnText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  sectionLabel: {
-    color: "#9a9a9a",
-    fontSize: 14,
-    marginTop: 20,
-    marginBottom: 8,
-  },
-  userRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
-  },
-  chip: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
+    backgroundColor: "#161616",
     borderWidth: 1,
-    borderColor: "#3a3a3a",
-    backgroundColor: "#151515",
+    borderColor: "#333333",
   },
-  chipActive: {
-    backgroundColor: "#1e6fff",
-    borderColor: "#1e6fff",
+  glassesChipOn: {
+    borderColor: INDIGO,
   },
-  chipText: {
-    color: "#bbbbbb",
-    fontSize: 16,
+  glassesChipText: {
+    color: "#dddddd",
+    fontSize: 14,
     fontWeight: "600",
   },
-  chipTextActive: {
-    color: "#ffffff",
-  },
-  button: {
-    backgroundColor: "#1e6fff",
-    borderRadius: 16,
-    paddingVertical: 22,
+  connectBtn: {
+    marginTop: 12,
+    backgroundColor: "#161616",
+    borderWidth: 1,
+    borderColor: INDIGO,
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: "center",
-    justifyContent: "center",
   },
-  buttonDisabled: {
-    backgroundColor: "#324a7a",
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonText: {
+  connectBtnText: {
     color: "#ffffff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
   },
   resultBox: {
     flex: 1,
-    marginTop: 20,
-    marginBottom: 24,
-    backgroundColor: "#111111",
-    borderRadius: 16,
-    padding: 18,
+    marginTop: 16,
+    backgroundColor: "#0d0d0d",
+    borderRadius: 20,
+    padding: 20,
   },
   resultContent: {
     flexGrow: 1,
     justifyContent: "center",
   },
   hint: {
-    color: "#6a6a6a",
-    fontSize: 16,
+    color: "#8a8a8a",
+    fontSize: 20,
+    lineHeight: 30,
     textAlign: "center",
+  },
+  loadingWrap: {
+    alignItems: "center",
+    gap: 14,
+  },
+  loadingText: {
+    color: "#a29bfe",
+    fontSize: 18,
+    fontWeight: "600",
   },
   resultText: {
     color: "#ffffff",
-    fontSize: 20,
-    lineHeight: 30,
+    fontSize: 22,
+    lineHeight: 34,
+    fontWeight: "500",
   },
   errorText: {
-    color: "#ff6b6b",
-    fontSize: 16,
-    lineHeight: 24,
+    color: "#ff7675",
+    fontSize: 18,
+    lineHeight: 27,
   },
   voiceRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 24,
+    marginTop: 12,
   },
   voiceBtn: {
     flex: 1,
-    backgroundColor: "#1b1b1b",
+    backgroundColor: "#161616",
     borderWidth: 1,
     borderColor: "#3a3a3a",
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: "center",
   },
   voiceBtnText: {
     color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  bottomZone: {
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  userRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+  },
+  chip: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#3a3a3a",
+    backgroundColor: "#111111",
+    alignItems: "center",
+  },
+  chipActive: {
+    backgroundColor: INDIGO,
+    borderColor: INDIGO,
+  },
+  chipText: {
+    color: "#bbbbbb",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  chipTextActive: {
+    color: "#ffffff",
+  },
+  bigButton: {
+    backgroundColor: INDIGO,
+    borderRadius: 28,
+    minHeight: 150, // 화면 하단을 크게 차지하는 엄지 존 버튼
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bigButtonLoading: {
+    backgroundColor: INDIGO_DIM,
+  },
+  bigButtonPressed: {
+    opacity: 0.85,
+  },
+  bigButtonText: {
+    color: "#ffffff",
+    fontSize: 30,
+    lineHeight: 40,
+    fontWeight: "800",
+    textAlign: "center",
+    letterSpacing: -0.5,
   },
 });

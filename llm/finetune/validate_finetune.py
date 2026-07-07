@@ -14,6 +14,7 @@ GPU 박스(메가존)로 넘기기 전 마지막 게이트. torch/unsloth 를 im
 종료코드 0 = 통과. 위반이 있으면 1로 끝나고 위반 목록을 찍는다.
 """
 
+import argparse
 import json
 import re
 import sys

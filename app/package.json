@@ -12,6 +12,7 @@
   "dependencies": {
     "expo": "~52.0.0",
     "expo-asset": "~11.0.5",
+    "expo-haptics": "~14.0.1",
     "expo-speech": "~13.0.1",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
