@@ -1,8 +1,7 @@
 // 공유 데이터 구조를 앱 쪽에서 보는 타입 정의.
 //
-// 기준: PROJECT_OVERVIEW.md 4번 "공유 데이터 구조".
-// 주의: shared/ 폴더에 정식 정의가 아직 없다. shared/ 가 확정되면
-//       이 파일을 그 정의에 맞춰 동기화한다. (지금은 문서 기준)
+// 기준: shared/schema.json (+ PROJECT_OVERVIEW.md 4번 "공유 데이터 구조").
+// 이 파일은 그 정의를 TS 로 옮긴 것 — shared 가 바뀌면 여기도 같이 바꾼다.
 
 // 시각 상태. 문서 4번: congenital(선천맹) / acquired(중도실명) / unknown(불명)
 export type Onset = "congenital" | "acquired" | "unknown";
