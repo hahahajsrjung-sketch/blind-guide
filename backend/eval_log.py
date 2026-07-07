@@ -13,12 +13,17 @@ TECH_PLAN 3.4-1: 파인튜닝 전에 평가셋(밋밋한 묘사 raw + 정답 설
 import os
 import json
 import datetime
+import threading
 
 # 로그 위치와 on/off는 환경변수로. 기본은 backend/eval/logs/interactions.jsonl, 켜짐.
 _DEFAULT_DIR = os.path.join(os.path.dirname(__file__), "eval", "logs")
 EVAL_LOG_ENABLED = os.environ.get("EVAL_LOG_ENABLED", "1") != "0"
 EVAL_LOG_DIR = os.environ.get("EVAL_LOG_DIR", _DEFAULT_DIR)
 _LOG_PATH = os.path.join(EVAL_LOG_DIR, "interactions.jsonl")
+
+# /describe 는 스레드풀에서 동시 실행될 수 있다. 같은 파일에 동시에 append 하면
+# 줄이 섞여 JSONL이 깨질 수 있어 쓰기를 잠근다.
+_WRITE_LOCK = threading.Lock()
 
 
 def record(profile, raw_description, model_output, artwork_id=None, image_present=False, model=None):
@@ -45,8 +50,10 @@ def record(profile, raw_description, model_output, artwork_id=None, image_presen
             },
         }
         os.makedirs(EVAL_LOG_DIR, exist_ok=True)
-        with open(_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+        line = json.dumps(sample, ensure_ascii=False) + "\n"
+        with _WRITE_LOCK:
+            with open(_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(line)
     except Exception:
         # 로깅은 부가 기능. 무슨 일이 있어도 응답 경로를 막지 않는다.
         pass

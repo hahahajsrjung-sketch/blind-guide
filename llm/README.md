@@ -21,10 +21,12 @@ TECH_PLAN 3.4의 순서를 그대로 코드로 옮겼다. **1~3단계는 이 데
 
 | 지표 | v1 baseline | v2 프롬프트 |
 |---|---|---|
-| 길이 초과 | 13/15 | **3/15** |
-| 안전문구 오적용 | 7/15 | **1/15** |
+| 길이 초과 | 12/15 | **3/15** |
+| 안전문구 오적용 | 6/15 | **1/15** |
 | 방송 인사말투 | 5/15 | **0/15** |
 | **선천맹 색 이름 누출** | **4/6** | **4/6 (그대로)** |
+
+(greedy도 Ollama 실행 간 ±1 흔들림이 있어 ±1은 오차로 본다 — notes.md 6절.)
 
 **프롬프트로 길이·인사말·안전은 완전히 해결됐다. 그러나 제품의 심장인 "선천맹에게 색 이름 대신
 교차감각"은 프롬프트만으로 안 잡힌다.** 이 남은 격차가 파인튜닝의 표적이다(TECH_PLAN 3.4-3).
@@ -54,8 +56,9 @@ llm/
   model/
     serve_v2.py            # 프롬프트-only v2 정본: '호출 시 프롬프트 전달' 참조 구현.
   finetune/
-    config.yaml            # 베이스 모델·LoRA·하이퍼파라미터. 여기 한 곳만 고친다.
-    train_lora.py          # Unsloth+TRL LoRA 학습. GPU 박스에서.
+    config.yaml            # 베이스 모델·LoRA·하이퍼파라미터·템플릿 마커. 여기 한 곳만 고친다.
+    train_lora.py          # Unsloth+TRL LoRA 학습. GPU 박스에서. 마커 하드 검증 포함.
+    validate_finetune.py   # GPU 없는 드라이런 게이트(형식·홀드아웃 오염·규칙·마커).
     requirements.txt, export_to_ollama.md, README.md
   notes.md                 # 시험 기록·baseline 표·판단 근거.
   README.md                # 이 문서.

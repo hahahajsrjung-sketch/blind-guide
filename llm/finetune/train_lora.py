@@ -97,13 +97,24 @@ def main():
         report_to="none",
     )
 
-    trainer = SFTTrainer(
-        model=model,
-        tokenizer=tokenizer,
-        train_dataset=train_ds,
-        eval_dataset=eval_ds,
-        args=sft_cfg,
-    )
+    try:
+        trainer = SFTTrainer(
+            model=model,
+            tokenizer=tokenizer,
+            train_dataset=train_ds,
+            eval_dataset=eval_ds,
+            args=sft_cfg,
+        )
+    except TypeError:
+        # 신형 TRL(>=0.12)은 tokenizer= 인자가 processing_class= 로 바뀌었다.
+        # requirements 가 하한만 고정이라 GPU 박스에서 신형이 깔릴 수 있어 둘 다 지원.
+        trainer = SFTTrainer(
+            model=model,
+            processing_class=tokenizer,
+            train_dataset=train_ds,
+            eval_dataset=eval_ds,
+            args=sft_cfg,
+        )
 
     # 손실을 assistant 응답 토큰에만 건다(프롬프트는 학습 신호에서 제외).
     # 마커는 config.yaml에서 온다(베이스 모델별로 다름 — EXAONE는 [|user|]/[|assistant|]).

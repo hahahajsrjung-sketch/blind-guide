@@ -54,8 +54,10 @@ def describe(req: DescribeRequest):
     if profile is None:
         raise HTTPException(status_code=404, detail=f"프로필 없음: {req.user_id}")
 
-    # 2. 작품 조회. artwork_id가 명시되면 그걸 우선.
+    # 2. 작품 조회. artwork_id가 명시되면 그걸 우선. 없는 id면 프로필과 같게 404.
     artwork = store.get_artwork(req.artwork_id) if req.artwork_id else None
+    if req.artwork_id and artwork is None:
+        raise HTTPException(status_code=404, detail=f"작품 없음: {req.artwork_id}")
     resolved_artwork_id = req.artwork_id
 
     # 3. 인식으로 밋밋한 묘사 얻기.
@@ -126,8 +128,12 @@ class ArtworkIn(BaseModel):
 
 
 @app.post("/uploads")
-async def upload_image(request: Request, file: UploadFile = File(...)):
-    """이미지 파일을 받아 로컬에 저장하고 접근 가능한 image_url을 반환한다."""
+def upload_image(request: Request, file: UploadFile = File(...)):
+    """이미지 파일을 받아 로컬에 저장하고 접근 가능한 image_url을 반환한다.
+
+    동기 def — 파일 복사가 블로킹 I/O라, async def로 두면 이벤트 루프를 막아
+    업로드 중 다른 요청(/describe 포함)이 전부 멈춘다. def면 스레드풀에서 돈다.
+    """
     ext = os.path.splitext(file.filename or "")[1]
     name = f"{uuid.uuid4().hex}{ext}"
     dest = os.path.join(UPLOAD_DIR, name)

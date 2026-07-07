@@ -36,6 +36,10 @@ def recognize(image) -> str:
     """
     loaded = _load_image(image)
     if loaded is None:
+        if is_recognizable(image):
+            # 실제 이미지 입력(URL/data URI)인데 읽기에 실패했다.
+            # 폴백 묘사로 조용히 덮으면 엉뚱한 작품 설명/오식별로 이어지므로 실패를 알린다.
+            raise ValueError("이미지를 읽지 못했습니다(URL 접근 실패 또는 잘못된 데이터)")
         return FALLBACK_DESCRIPTION
     image_bytes, mime_type = loaded
     return _vlm_describe(image_bytes, mime_type)
@@ -98,7 +102,10 @@ def _match_llm(raw_description: str, items) -> str:
         contents=prompt,
     )
     answer = (response.text or "").strip().split()
-    return answer[0] if answer else "none"
+    if not answer:
+        return "none"
+    # 모델이 'art-002.' 처럼 문장부호를 붙여도 id 매칭이 죽지 않게 정리한다.
+    return answer[0].strip(".,:;!?'\"()[]{}")
 
 
 def _load_image(image):

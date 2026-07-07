@@ -49,7 +49,11 @@ COLOR_RE = re.compile(
     r"|청색|적색|황색|백색|흑색|은색|금색"
 )
 # raw에 안전 단서가 있으면 output의 '안전' 언급은 정당. 없는데 붙이면 오적용.
-SAFETY_CUES = ["열차", "선로", "횡단보도", "신호", "뜨겁", "뜨거", "계단", "차도", "승강장"]
+# rule_repair.SAFETY_CUES 와 반드시 같은 목록 유지 — 생성기(감수 데이터)와 채점기가
+# 다르면, 생성기가 정당하게 남긴 안전 문장을 채점기가 오적용으로 세는 불일치가 생긴다.
+# (현재 evalset raw에는 추가 단서 4개가 등장하지 않아 기존 baseline 수치는 그대로 유효.)
+SAFETY_CUES = ["열차", "선로", "횡단보도", "신호", "뜨겁", "뜨거", "계단", "차도",
+               "승강장", "턱", "웅덩이", "공사", "장애물"]
 GREET_RE = re.compile(r"안녕하세요|여러분|설명드리|소개해|해설을 통해|말씀드리")
 LEN_MAX = {"short": 2, "medium": 4, "long": 5}
 
@@ -110,7 +114,7 @@ def main():
         elif r["color_hits"]:
             flags.append(f"색{r['color_hits']}")
         if r["over_len"]:
-            flags.append(f"길이초과({r['n_sent']}/{LEN_MAX[r['length']]})")
+            flags.append(f"길이초과({r['n_sent']}/{LEN_MAX.get(r['length'], 4)})")
         if r["safety_misapplied"]:
             flags.append("안전오적용")
         if r["greeting"]:
