@@ -1,0 +1,13 @@
+# 비밀값. 절대 커밋 금지.
+.env
+
+# 업로드된 이미지(런타임 생성물).
+uploads/
+
+# 평가셋 수집 로그와 러너 결과(런타임 생성물). 견본(eval_set.example.jsonl)은 커밋.
+eval/logs/
+eval/results/
+
+# 파이썬 캐시.
+__pycache__/
+*.pyc

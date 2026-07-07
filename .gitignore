@@ -1,0 +1,25 @@
+# 비밀값. 절대 커밋 금지. (.env.example 은 커밋됨)
+.env
+*.env.local
+
+# 의존성
+node_modules/
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+
+# 런타임 생성물 (backend)
+backend/uploads/
+backend/eval/logs/
+backend/eval/results/
+
+# 빌드 산출물
+dist/
+build/
+.expo/
+
+# OS/에디터
+.DS_Store
+Thumbs.db

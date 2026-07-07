@@ -1,0 +1,13 @@
+node_modules/
+.expo/
+dist/
+web-build/
+
+# 비밀값·주소는 커밋하지 않는다. .env.example 만 공유한다.
+.env
+.env.local
+
+*.log
+.DS_Store
+.expo-export-check/
+.nodecheck/

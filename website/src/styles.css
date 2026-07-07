@@ -1,0 +1,65 @@
+/* 뼈대 단계 최소 스타일. 세련된 디자인은 나중. */
+:root {
+  --fg: #1a1a1a;
+  --muted: #666;
+  --line: #ddd;
+  --accent: #1f5fff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--fg);
+  line-height: 1.6;
+}
+
+.page { max-width: 820px; margin: 0 auto; padding: 0 20px; }
+
+.nav {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.nav .brand { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: var(--fg); }
+.nav nav { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.nav a { color: var(--accent); text-decoration: none; }
+.nav .sep { color: var(--line); }
+
+.content { padding: 28px 0 48px; }
+
+.lead { font-size: 1.1rem; color: var(--muted); }
+
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.foot { border-top: 1px solid var(--line); padding: 16px 0; color: var(--muted); font-size: 0.9rem; }
+
+/* 폼 */
+.form label { display: block; margin: 14px 0 4px; font-weight: 600; }
+.form input, .form textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit;
+}
+.form textarea { min-height: 100px; resize: vertical; }
+.req { color: #c00; }
+.hint { color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
+.msg-ok { color: #157347; }
+.msg-err { color: #c00; }
+
+/* 목록 */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.card { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.card img { width: 100%; height: 150px; object-fit: cover; background: #f2f2f2; display: block; }
+.card .body { padding: 10px 12px; }
+.card h3 { margin: 0 0 4px; font-size: 1rem; }
+.card p { margin: 2px 0; color: var(--muted); font-size: 0.9rem; }

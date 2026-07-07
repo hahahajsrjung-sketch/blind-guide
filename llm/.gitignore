@@ -1,0 +1,14 @@
+# 파이썬 캐시
+__pycache__/
+*.pyc
+
+# 평가 결과(eval_local_results_*.md)와 손시험 출력은 재생성 가능하지만,
+# baseline 근거로 notes.md가 참조하므로 지금은 커밋해 둔다. 대량 생산 단계에서
+# 로그/증류 산출물이 늘면 그때 별도 폴더로 빼고 여기서 무시한다.
+
+# 증류 감수 대기 파일 — 재생성 가능한 중간 산출물(사람 감수 전). 확정본 train.jsonl 만 커밋.
+data/sft/train.review.jsonl
+
+# 파인튜닝 산출물 — 큰 바이너리(어댑터/병합/GGUF). 학습 시 재생성.
+finetune/outputs/
+finetune/data/train_chat.jsonl

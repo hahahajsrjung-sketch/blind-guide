@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "시각장애인 안내 AI의 공유 데이터 구조. 백엔드(Python)와 웹사이트가 똑같이 참조한다. PROJECT_OVERVIEW.md 4번을 따른다.",
+  "definitions": {
+    "Artwork": {
+      "type": "object",
+      "description": "작품 하나. 웹사이트가 저장하고, 백엔드가 인식·설명 재료로 쓴다.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "고유 번호. 시스템이 자동 부여."
+        },
+        "image_url": {
+          "type": "string",
+          "description": "작품 사진 URL. 이미지 인식의 기준이자 설명 재료. 필수."
+        },
+        "title": {
+          "type": "string",
+          "description": "제목."
+        },
+        "artist": {
+          "type": "string",
+          "description": "작가명."
+        },
+        "material": {
+          "type": "string",
+          "description": "재질."
+        },
+        "size": {
+          "type": "string",
+          "description": "크기."
+        },
+        "year": {
+          "type": "string",
+          "description": "제작연도."
+        },
+        "description": {
+          "type": "string",
+          "description": "작가가 직접 쓴 설명 글. 선택. 없으면 백엔드가 사진과 기본 정보로 설명을 생성한다."
+        }
+      },
+      "required": ["id", "image_url"]
+    },
+    "UserProfile": {
+      "type": "object",
+      "description": "사용자 프로필. 시각 상태에 따라 설명 방식이 달라진다.",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "description": "고유 번호."
+        },
+        "onset": {
+          "type": "string",
+          "enum": ["congenital", "acquired", "unknown"],
+          "description": "시각 상태. congenital(선천맹), acquired(중도실명), unknown(불명)."
+        },
+        "interest": {
+          "type": "string",
+          "description": "관심사. 없어도 됨."
+        },
+        "length": {
+          "type": "string",
+          "enum": ["short", "medium", "long"],
+          "description": "설명 길이 취향. short(한두 문장), medium(서너 문장), long(네다섯 문장)."
+        }
+      },
+      "required": ["user_id", "onset", "length"]
+    }
+  }
+}

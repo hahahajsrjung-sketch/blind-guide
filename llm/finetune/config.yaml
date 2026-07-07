@@ -1,0 +1,56 @@
+# 리라이터 LoRA 파인튜닝 설정.
+# TECH_PLAN 3.4: 베이스는 한국어 오픈소스 3B~8B, 방법은 LoRA/QLoRA, 도구는 Unsloth.
+# 이 파일 하나만 바꿔 베이스 모델·하이퍼파라미터를 조정한다. 학습은 GPU 박스(메가존 A100)에서.
+
+# --- 베이스 모델 ---
+# 로컬 시험(notes.md)에서 최소선으로 확인된 EXAONE 3.5 7.8B instruct.
+# 대안 후보: LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct(더 가벼움),
+#           Qwen/Qwen2.5-7B-Instruct, google/gemma-2-9b-it 등. base_model만 바꾸면 된다.
+base_model: "LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+max_seq_length: 2048
+load_in_4bit: true          # QLoRA. A100 40GB 한 장이면 16bit도 가능하나 4bit로 여유있게.
+
+# 응답 토큰만 학습(train_on_responses_only)에 쓰는 채팅 템플릿 마커.
+# **베이스 모델을 바꾸면 반드시 같이 바꾼다.** 마커가 틀리면 마스킹이 조용히 잘못돼
+# 학습이 무효가 되므로, train_lora.py가 실제 템플릿 문자열에 마커가 있는지 하드 검증한다.
+# EXAONE 3.5: [|user|] / [|assistant|].  Qwen2.5: <|im_start|>user\n / <|im_start|>assistant\n
+instruction_part: "[|user|]"
+response_part: "[|assistant|]"
+
+# --- LoRA ---
+lora_r: 16
+lora_alpha: 16
+lora_dropout: 0.0
+lora_target_modules:        # attention + MLP 투영 전부(권장 기본).
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+# --- 데이터 ---
+# build_chat_dataset.py 가 만든 채팅 형식(JSONL, 한 줄 = {"messages":[...]}).
+train_file: "data/train_chat.jsonl"
+eval_file: ""               # 비워두면 평가셋 분리 없이 학습만. (측정은 llm/eval_local.py 로 별도.)
+
+# --- 학습 하이퍼파라미터 ---
+# 데이터가 수백 개 규모라 과적합 주의. 에폭 낮게, lr 보수적으로.
+num_train_epochs: 3
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4     # 유효 배치 8.
+learning_rate: 2.0e-4
+warmup_ratio: 0.05
+weight_decay: 0.01
+lr_scheduler_type: "cosine"
+logging_steps: 5
+save_steps: 50
+seed: 3407
+
+# --- 출력 ---
+output_dir: "outputs/blindguide-rewriter-lora"
+# 학습 후 LoRA를 베이스에 병합해 GGUF로 내보내면 Ollama에서 바로 서빙 가능(export_to_ollama.md).
+save_merged_16bit: true
+save_gguf: true
+gguf_quant: "q4_k_m"        # Ollama 서빙용 양자화.
