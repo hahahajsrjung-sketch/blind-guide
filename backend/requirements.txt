@@ -4,3 +4,7 @@ pydantic
 google-genai
 python-dotenv
 python-multipart
+# v2 파이프라인 (docs/DATA_PIPELINE.md): 이미지 임베딩 식별 + 영상 프레임 추출
+sentence-transformers
+opencv-python-headless
+numpy

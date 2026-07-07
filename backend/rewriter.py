@@ -23,22 +23,44 @@ def rewrite(raw_description, profile, artwork) -> str:
     length_rule = prompts.length_rule(length)
 
     # 작품 컨텍스트 조립. 있는 필드만 넣는다.
+    # v2(docs/DATA_PIPELINE.md 4절): 안전은 맨 앞, 촉각은 선천맹의 색 대체 재료,
+    # ai_profile(등록 시 AI 정리본)이 있으면 정확한 시각 구성으로 활용.
     context_lines = []
     if artwork:
+        ai = artwork.get("ai_profile") or {}
+
+        # 안전이 최우선 (시스템 프롬프트 원칙 7과 호응)
+        safety = artwork.get("safety") or ai.get("safety_notes")
+        if safety:
+            context_lines.append(f"안전·관람 규칙(반드시 가장 먼저 전달): {safety}")
+
         for label, key in [
             ("제목", "title"),
             ("작가", "artist"),
             ("재질", "material"),
             ("크기", "size"),
             ("제작연도", "year"),
+            ("전시 위치", "location"),
         ]:
             value = artwork.get(key)
             if value:
                 context_lines.append(f"{label}: {value}")
 
+        if ai.get("visual_summary"):
+            context_lines.append(f"작품의 시각 구성(정리본): {ai['visual_summary']}")
+
+        # 촉각 재료 — 특히 congenital에서 색 대신 쓸 교차감각
+        tactile = artwork.get("tactile") or ai.get("tactile_summary")
+        if tactile:
+            context_lines.append(f"촉각·재질감(색 대신 쓸 수 있는 감각 재료): {tactile}")
+
         artist_note = artwork.get("description")
         if artist_note:
             context_lines.append(f"작가가 쓴 설명(우선 참고): {artist_note}")
+
+        intent = artwork.get("intent")
+        if intent:
+            context_lines.append(f"작가 의도(해석하지 말고 맥락으로만): {intent}")
 
     interest = profile.get("interest")
     if interest:

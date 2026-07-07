@@ -18,6 +18,15 @@
 | `size` | string | | 크기. |
 | `year` | string | | 제작연도. |
 | `description` | string | | 작가가 직접 쓴 설명 글. 없으면 백엔드가 사진과 기본 정보로 생성. |
+| `images` | array | | **(v2)** 여러 각도·세부·전경 사진 `{url, kind}`. kind: `main`/`angle`/`detail`/`context`. 임베딩 식별 재료. |
+| `video_url` | string | | **(v2)** 작품 주위를 도는 짧은 영상. 서버가 프레임 추출해 각도 컷처럼 사용. |
+| `tactile` | string | | **(v2)** 촉각·재질감 메모. 선천맹 설명의 핵심 재료. |
+| `safety` | string | | **(v2)** 안전·관람 규칙. 설명 맨 앞에 읽힘. |
+| `location` | string | | **(v2)** 전시 위치. |
+| `intent` | string | | **(v2)** 작가 의도. 맥락으로만 사용. |
+| `ai_profile` | object | | **(v2)** 백엔드가 등록 시 자동 생성한 정리본(visual_summary·tactile_summary·safety_notes·key_features). 클라이언트는 읽기만. |
+
+> v2 확장의 배경과 데이터 흐름: [docs/DATA_PIPELINE.md](../docs/DATA_PIPELINE.md). `image_url`(단수)은 하위호환으로 유지되며 서버가 `images[0].url`을 미러한다.
 
 ## UserProfile (사용자 프로필)
 

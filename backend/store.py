@@ -63,8 +63,16 @@ PROFILES = {
 # 나중에 DB로 옮기면 DB의 자동 증가 키가 이 역할을 한다.
 _id_counter = itertools.count(3)
 
-# 작품 필드 순서(Artwork 구조). 저장 시 이 필드만 받는다.
-_ARTWORK_FIELDS = ["image_url", "title", "artist", "material", "size", "year", "description"]
+# 작품 필드 순서(Artwork 구조 v2). 저장 시 이 필드만 받는다.
+# v2 확장: images(다중 사진)·video_url·tactile·safety·location·intent — docs/DATA_PIPELINE.md
+_ARTWORK_FIELDS = [
+    "image_url", "title", "artist", "material", "size", "year", "description",
+    "video_url", "tactile", "safety", "location", "intent",
+]
+
+# 작품별 이미지 임베딩 인덱스. artwork_id -> [vec, ...] (각도별 여러 개).
+# 저장소와 마찬가지로 메모리 — 나중에 DB/벡터스토어로 함께 이전.
+EMBEDDINGS = {}
 
 
 def get_artwork(artwork_id):
@@ -81,13 +89,37 @@ def add_artwork(data: dict) -> dict:
     """작품을 저장하고 저장된 Artwork를 반환한다. id는 백엔드가 자동 부여.
 
     웹사이트 입력 페이지가 POST /artworks로 부른다.
+    v2: images 리스트를 받으면 images[0].url을 image_url에 미러(하위호환).
     """
     artwork_id = f"art-{next(_id_counter):03d}"
     artwork = {"id": artwork_id}
     for field in _ARTWORK_FIELDS:
         artwork[field] = data.get(field, "") or ""
+
+    # 다중 사진(v2). [{url, kind}] 형태만 남긴다.
+    images = []
+    for img in data.get("images") or []:
+        url = (img or {}).get("url")
+        if url:
+            images.append({"url": url, "kind": (img.get("kind") or "angle")})
+    artwork["images"] = images
+    if images and not artwork["image_url"]:
+        artwork["image_url"] = images[0]["url"]  # 하위호환 미러
+    elif artwork["image_url"] and not images:
+        artwork["images"] = [{"url": artwork["image_url"], "kind": "main"}]
+
     ARTWORKS[artwork_id] = artwork
     return artwork
+
+
+def set_embeddings(artwork_id: str, vectors: list):
+    """작품의 이미지 임베딩 벡터들을 인덱스에 저장한다(인제스천이 호출)."""
+    EMBEDDINGS[artwork_id] = vectors
+
+
+def get_embedding_index() -> dict:
+    """전체 임베딩 인덱스. 관람객 사진 식별(1차)이 사용."""
+    return EMBEDDINGS
 
 
 def list_artworks() -> list:

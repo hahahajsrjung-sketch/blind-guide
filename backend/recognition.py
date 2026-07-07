@@ -54,8 +54,41 @@ def is_recognizable(image) -> bool:
     )
 
 
+def identify_by_image(image, embedding_index):
+    """1차 식별: 관람객 사진의 CLIP 임베딩을 작품 인덱스와 대조한다.
+
+    반환 (artwork_id|None, similarity, decided):
+      decided=True  → 1차에서 결론(확정 매칭 또는 후보군 자체가 없음)
+      decided=False → 애매(중간 유사도) → 호출측이 2차(LLM 대조)로 폴백
+    임계값은 환경변수 EMBED_MATCH_HIGH(기본 0.85)/EMBED_MATCH_LOW(기본 0.70).
+    docs/DATA_PIPELINE.md 3절.
+    """
+    import os
+    import embeddings
+
+    if not embeddings.is_available() or not embedding_index:
+        return None, 0.0, False  # 임베딩 못 씀 → 2차로
+
+    loaded = _load_image(image)
+    if loaded is None:
+        return None, 0.0, False
+    try:
+        vec = embeddings.embed_image_bytes(loaded[0])
+        best_id, sim = embeddings.best_match(vec, embedding_index)
+    except Exception:
+        return None, 0.0, False
+
+    high = float(os.environ.get("EMBED_MATCH_HIGH", "0.85"))
+    low = float(os.environ.get("EMBED_MATCH_LOW", "0.70"))
+    if best_id and sim >= high:
+        return best_id, sim, True    # 확정
+    if sim < low:
+        return None, sim, True       # 어느 작품도 아님 — 억지로 안 맞춤
+    return best_id, sim, False       # 애매 → 2차 확인
+
+
 def identify(raw_description: str, catalog) -> str:
-    """밋밋한 묘사를 카탈로그와 대조해 어느 작품인지 artwork_id를 고른다.
+    """2차 식별(폴백): 밋밋한 묘사를 카탈로그와 대조해 artwork_id를 고른다.
 
     확신이 없으면 None을 반환한다(플랜 3.2: 이미지 식별은 어려우므로 억지로 맞추지 않는다.
     나중에 QR/NFC 태깅으로 정확도를 보강한다). 매칭 판단부(_match_llm)는 별도 함수로 분리 —

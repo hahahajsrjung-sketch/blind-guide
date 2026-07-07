@@ -25,6 +25,14 @@
 | `config.py` | API 키·모델명을 환경변수에서 읽음. `.env` 있으면 자동 로드. |
 | `eval_log.py` | 평가셋 수집 로그 훅(best-effort). `eval/` 참고. |
 | `eval/` | 평가셋 인프라(3단계). 형식·러너·로그. `eval/README.md` 참고. |
+| `embeddings.py` | **(v2)** CLIP(ViT-B/32, 오픈소스·로컬) 이미지 임베딩 + 코사인 매칭. 영상 프레임 추출(OpenCV). |
+| `ingestion.py` | **(v2)** 등록 순간 AI 정리: 사진들→임베딩 인덱스, 대표컷 VLM 캡션, ai_profile 생성. |
+
+## v2 파이프라인 (docs/DATA_PIPELINE.md)
+
+- **등록**: `POST /artworks`가 다중 사진(`images[{url,kind}]`)·영상·촉각/안전/위치/의도를 받고, 즉시 인제스천(임베딩+ai_profile). 실패해도 등록은 성공(best-effort), 결과는 `_ingestion`으로 반환.
+- **식별 2단**: 1차 CLIP 임베딩(유사도 ≥`EMBED_MATCH_HIGH` 0.85 확정, <`EMBED_MATCH_LOW` 0.70 미매칭) → 애매하면 2차 LLM 카탈로그 대조. 임베딩 없는 작품(데모 등)은 자동으로 2차만.
+- **설명**: 안전 문구 최우선 → 시각 구성(정리본) → 촉각(선천맹의 색 대체 재료) → 작가 글·의도. onset·길이 규칙은 기존 그대로.
 
 ## 실행
 

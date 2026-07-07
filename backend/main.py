@@ -18,6 +18,7 @@ import store
 import recognition
 import rewriter
 import eval_log
+import ingestion
 import config
 
 app = FastAPI(title="시각장애인 안내 AI 백엔드")
@@ -71,13 +72,18 @@ def describe(req: DescribeRequest):
         # VLM 호출 자체가 실패(네트워크, 인증, 할당량 등).
         raise HTTPException(status_code=502, detail=f"인식(VLM) 호출 실패: {e}")
 
-    # 3.5 artwork_id를 몰라도 실제 이미지가 왔으면 묘사로 어느 작품인지 식별해 본다.
+    # 3.5 artwork_id를 몰라도 실제 이미지가 왔으면 어느 작품인지 식별해 본다. 2단(DATA_PIPELINE 3절):
+    #     1차 임베딩(CLIP) — 확정이면 LLM 호출 없이 끝. 애매하면 2차 LLM 대조로 폴백.
     #     확신 없으면 None → 작품 컨텍스트 없이 묘사만으로 설명(플랜 3.2: 억지로 안 맞춘다).
     if artwork is None and recognition.is_recognizable(req.image):
-        try:
-            guessed_id = recognition.identify(raw_description, store.list_artworks())
-        except Exception:
-            guessed_id = None  # 식별 실패는 치명적이지 않다. 그냥 컨텍스트 없이 간다.
+        guessed_id, _sim, decided = recognition.identify_by_image(
+            req.image, store.get_embedding_index()
+        )
+        if not decided:
+            try:
+                guessed_id = recognition.identify(raw_description, store.list_artworks())
+            except Exception:
+                guessed_id = None  # 식별 실패는 치명적이지 않다. 그냥 컨텍스트 없이 간다.
         if guessed_id:
             artwork = store.get_artwork(guessed_id)
             resolved_artwork_id = guessed_id
@@ -116,15 +122,30 @@ def describe(req: DescribeRequest):
 # ---- 작품 저장/조회 (웹사이트 입력 페이지가 쓴다) ----
 
 
+class ArtworkImageIn(BaseModel):
+    url: str
+    # main(대표) / angle(각도) / detail(세부) / context(설치 전경)
+    kind: Optional[str] = "angle"
+
+
 class ArtworkIn(BaseModel):
-    # image_url은 필수(Artwork 공유 구조). 나머지는 선택.
-    image_url: str
+    # 대표 사진(하위호환). images를 주면 생략 가능 — 서버가 images[0]을 미러.
+    image_url: Optional[str] = ""
+    # v2: 여러 각도·세부·전경 사진. 임베딩 식별의 재료 (docs/DATA_PIPELINE.md 1.1)
+    images: Optional[list[ArtworkImageIn]] = None
+    # v2: 작품 주위를 도는 짧은 영상. 서버가 프레임 추출.
+    video_url: Optional[str] = ""
     title: Optional[str] = ""
     artist: Optional[str] = ""
     material: Optional[str] = ""
     size: Optional[str] = ""
     year: Optional[str] = ""
     description: Optional[str] = ""
+    # v2: 촉각·안전·위치·의도 (docs/DATA_PIPELINE.md 1.3)
+    tactile: Optional[str] = ""
+    safety: Optional[str] = ""
+    location: Optional[str] = ""
+    intent: Optional[str] = ""
 
 
 @app.post("/uploads")
@@ -146,8 +167,16 @@ def upload_image(request: Request, file: UploadFile = File(...)):
 
 @app.post("/artworks")
 def create_artwork(body: ArtworkIn):
-    """작품을 저장한다. id는 백엔드가 자동 부여. 저장된 Artwork 반환."""
-    return store.add_artwork(body.dict())
+    """작품을 저장하고, 저장 즉시 AI가 정리(인제스천)한다.
+
+    인제스천 = 임베딩 인덱스 생성(사진들+영상 프레임) + VLM 캡션 + ai_profile.
+    인제스천이 부분 실패해도 등록은 성공한다(best-effort). 결과는 _ingestion 필드로 알려준다.
+    """
+    if not body.image_url and not (body.images or []):
+        raise HTTPException(status_code=400, detail="사진이 최소 1장 필요합니다 (image_url 또는 images)")
+    artwork = store.add_artwork(body.dict())
+    summary = ingestion.ingest(artwork)
+    return {**artwork, "_ingestion": summary}
 
 
 @app.get("/artworks")
